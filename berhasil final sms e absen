@@ -1,0 +1,118 @@
+#include <SPI.h>
+#include <MFRC522.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include "SIM900.h"
+#define SS_PIN 10
+#define RST_PIN 9
+
+#include "sms.h"
+SMSGSM sms;
+
+int numdata;
+boolean started=false;
+char smsbuffer[160];
+char n[20];
+
+
+MFRC522 mfrc522(SS_PIN, RST_PIN);   // Create MFRC522 instance.
+ int led = 6;
+LiquidCrystal_I2C lcd(0x27,16,2); // set the LCD address to 0x27
+int pinbuzz = 5;
+    //array untuk menghasilkan nada yang berbeda - beda
+int song[]= {500,1000,1500,2000,1500,1000,500};
+    //array untuk mengatur durasi
+int durasi[]= {80,180,280,380,500,1000,1500};
+
+void setup() 
+{
+  Serial.begin(9600);   // Initiate a serial communication
+
+     if (gsm.begin(2400)) {
+          Serial.println("\nGSM READY");
+          started=true;
+     } else Serial.println("\nGSM IDLE");
+
+
+  
+  SPI.begin();      // Initiate  SPI bus
+  mfrc522.PCD_Init();   // Initiate MFRC522
+  Serial.println("Approximate your card to the reader...");
+  Serial.println();
+   lcd.init();
+   lcd.backlight();
+  lcd.setCursor (0,0);
+  lcd.print("");
+  lcd.setCursor (0,1);
+  lcd.print("XII MIPA 1");
+    delay (4000);
+  lcd.clear();
+  pinMode(led, OUTPUT);
+  pinMode (pinbuzz, OUTPUT);
+
+
+}
+
+
+void loop() 
+{
+  lcd.setCursor (0,0);
+  lcd.print("TEMPELKAN");
+  lcd.setCursor (0,1);
+  lcd.print("KARTUMU");
+  // Look for new cards
+  if ( ! mfrc522.PICC_IsNewCardPresent()) 
+  {
+    return;
+  }
+  // Select one of the cards
+  if ( ! mfrc522.PICC_ReadCardSerial()) 
+  {
+    return;
+  }
+  //Show UID on serial monitor
+  Serial.print("UID tag :");
+  String content= "";
+  byte letter;
+  for (byte i = 0; i < mfrc522.uid.size; i++) 
+  {
+     Serial.print(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " ");
+     Serial.print(mfrc522.uid.uidByte[i], HEX);
+     content.concat(String(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " "));
+     content.concat(String(mfrc522.uid.uidByte[i], HEX));
+  }
+  Serial.println();
+  Serial.print("Message : ");
+  content.toUpperCase();
+  if (content.substring(1) == "C1 2A AC 31") //change here the UID of the card/cards that you want to give access
+  {
+    Serial.println("Authorized access");
+    Serial.println();
+    lcd.setCursor (0,0);
+  lcd.print("AKSES DIIZINKAN");
+  lcd.setCursor (0,1);
+  lcd.print("FAAZA BIL AMRI");
+
+          if (sms.SendSMS("081287658591", "Faaza Bil Amri Telah Melakukan Absen di Sekolah"))
+          Serial.println("\nSMS sent OK");
+  
+    delay(3000);
+  }
+ 
+ else   {
+    Serial.println(" Access denied");
+        lcd.setCursor (0,0);
+  lcd.print("AKSES TIDAK");
+  lcd.setCursor (0,1);
+  lcd.print("DIIZINKAN");
+  digitalWrite(led, HIGH);
+  for (int note = 0; note <7; note ++){
+/* nyalakan buzzer dengan nada berurutan sesuai array (song), dengan durasinya sesuai dengan array (durasi)*/
+  tone(pinbuzz, song[note], durasi[note]);
+  delay(durasi[note]);
+  }
+    delay(3000);
+  }
+  
+  digitalWrite(led, LOW);
+} 
